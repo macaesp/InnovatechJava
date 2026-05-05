@@ -21,6 +21,7 @@
     <modules>
         <module>msvc-proyecto</module>
         <module>msvc-recursos</module>
+        <module>msvc-colaboracion</module>
     </modules>
 
     <properties>
