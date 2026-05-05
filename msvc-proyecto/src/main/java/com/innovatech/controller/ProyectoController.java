@@ -17,6 +17,10 @@ public class ProyectoController {
 
     private final ProyectoService proyectoService;
 
+    public ProyectoController(ProyectoService proyectoService) {
+        this.proyectoService = proyectoService;
+    }
+
     @PostMapping
     public ResponseEntity<Proyecto> crearProyecto(@Valid @RequestBody Proyecto proyecto) {
         return ResponseEntity.status(HttpStatus.CREATED)

@@ -17,6 +17,10 @@ public class TareaController {
 
     private final TareaService tareaService;
 
+    public TareaController(TareaService tareaService) {
+        this.tareaService = tareaService;
+    }
+
     @PostMapping("/proyecto/{proyectoId}")
     public ResponseEntity<Tarea> crearTarea(
             @PathVariable Long proyectoId,
