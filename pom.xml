@@ -19,7 +19,7 @@
     <name>ms-proyectos</name>
     <description>Microservicio de Gestión de Proyectos - Innovatech Solutions</description>
     <modules>
-        <module>msvc-proyecto</module>
+        <module>ms-proyectos</module>
         <module>msvc-recursos</module>
         <module>msvc-colaboracion</module>
     </modules>
