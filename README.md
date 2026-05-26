@@ -14,6 +14,7 @@ El sistema está compuesto por tres microservicios principales:
 - `msvc-proyecto`
 - `msvc-recursos`
 - `msvc-colaboracion`
+-  `msvc-autentificacion`
 
 Cada uno implementa una arquitectura en capas:
 - Controller
