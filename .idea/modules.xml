@@ -2,6 +2,7 @@
 <project version="4">
   <component name="ProjectModuleManager">
     <modules>
+      <module fileurl="file://$PROJECT_DIR$/InnovatechJava.iml" filepath="$PROJECT_DIR$/InnovatechJava.iml" />
       <module fileurl="file://$PROJECT_DIR$/msvc-colaboracion/aa/aa.iml" filepath="$PROJECT_DIR$/msvc-colaboracion/aa/aa.iml" />
     </modules>
   </component>

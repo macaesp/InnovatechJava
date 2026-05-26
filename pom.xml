@@ -13,13 +13,13 @@
     </parent>
 
     <groupId>com.innovatech</groupId>
-    <artifactId>ms-proyectos</artifactId>
+    <artifactId>ms-proyecto</artifactId>
     <version>1.0.0</version>
     <packaging>pom</packaging>
-    <name>ms-proyectos</name>
+    <name>msvc-proyectos</name>
     <description>Microservicio de Gestión de Proyectos - Innovatech Solutions</description>
     <modules>
-        <module>ms-proyectos</module>
+        <module>msvc-proyecto</module>
         <module>msvc-recursos</module>
         <module>msvc-colaboracion</module>
     </modules>

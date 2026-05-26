@@ -6,6 +6,7 @@
       <list>
         <option value="$PROJECT_DIR$/pom.xml" />
         <option value="$PROJECT_DIR$/ms-proyectos/pom.xml" />
+        <option value="$PROJECT_DIR$/msvc-autentificacion/pom.xml" />
       </list>
     </option>
   </component>
