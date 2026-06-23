@@ -1,22 +1,62 @@
 version: '3.8'
 
 services:
+  autentificacion:
+    image: msvc-autentificacion
+    ports:
+      - "8080:8080"
+    networks:
+      - app-network
+    deploy:
+      replicas: 1
+      restart_policy:
+        condition: on-failure
+      update_config:
+        parallelism: 1
+        delay: 10s
+
   recursos:
     image: msvc-recursos
     ports:
       - "8081:8080"
+    networks:
+      - app-network
+    deploy:
+      replicas: 1
+      restart_policy:
+        condition: on-failure
+      update_config:
+        parallelism: 1
+        delay: 10s
 
   proyecto:
     image: msvc-proyecto
     ports:
       - "8082:8080"
+    networks:
+      - app-network
+    deploy:
+      replicas: 1
+      restart_policy:
+        condition: on-failure
+      update_config:
+        parallelism: 1
+        delay: 10s
 
   colaboracion:
     image: msvc-colaboracion
     ports:
       - "8083:8080"
+    networks:
+      - app-network
+    deploy:
+      replicas: 1
+      restart_policy:
+        condition: on-failure
+      update_config:
+        parallelism: 1
+        delay: 10s
 
-  autentificacion:
-    image: msvc-autentificacion
-    ports:
-    - "8080:8080"
+networks:
+  app-network:
+    driver: overlay
