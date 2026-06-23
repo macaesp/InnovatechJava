@@ -1,1 +1,1 @@
-{"statusCode": 200, "body": "{\"message\": \"Notificaci\\u00f3n registrada exitosamente\", \"detalle\": \"[Innovatech] Proyecto 'Sin nombre' cambi\\u00f3 a estado 'Sin estado'. Responsable: Sin responsable\"}"}
+{"statusCode": 200, "body": "{\"message\": \"Notificaci\\u00f3n enviada a la cola\", \"messageId\": \"31a3473a-b1e2-43c1-8e05-0328b6a94ff2\"}"}
