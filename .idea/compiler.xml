@@ -16,7 +16,6 @@
           <entry name="$MAVEN_REPOSITORY$/org/projectlombok/lombok/1.18.32/lombok-1.18.32.jar" />
         </processorPath>
         <module name="msvc-autentificacion" />
-        <module name="msvc-proyecto" />
       </profile>
       <profile name="Annotation profile for msvc-proyectos" enabled="true">
         <sourceOutputDir name="target/generated-sources/annotations" />
@@ -32,10 +31,28 @@
         <sourceTestOutputDir name="target/generated-test-sources/test-annotations" />
         <outputRelativeToContentRoot value="true" />
         <processorPath useClasspath="false">
-          <entry name="$MAVEN_REPOSITORY$/org/projectlombok/lombok/unknown/lombok-unknown.jar" />
           <entry name="$MAVEN_REPOSITORY$/org/projectlombok/lombok/1.18.32/lombok-1.18.32.jar" />
         </processorPath>
         <module name="msvc-recursos" />
+      </profile>
+      <profile name="Annotation profile for msvc-proyecto" enabled="true">
+        <sourceOutputDir name="target/generated-sources/annotations" />
+        <sourceTestOutputDir name="target/generated-test-sources/test-annotations" />
+        <outputRelativeToContentRoot value="true" />
+        <processorPath useClasspath="false">
+          <entry name="$MAVEN_REPOSITORY$/org/projectlombok/lombok/1.18.32/lombok-1.18.32.jar" />
+        </processorPath>
+        <module name="msvc-proyecto" />
+      </profile>
+      <profile name="Annotation profile for servicio-proyectos" enabled="true">
+        <sourceOutputDir name="target/generated-sources/annotations" />
+        <sourceTestOutputDir name="target/generated-test-sources/test-annotations" />
+        <outputRelativeToContentRoot value="true" />
+        <processorPath useClasspath="false">
+          <entry name="$MAVEN_REPOSITORY$/org/projectlombok/lombok/1.18.32/lombok-1.18.32.jar" />
+          <entry name="$MAVEN_REPOSITORY$/org/projectlombok/lombok/1.18.32/lombok-1.18.32.jar" />
+        </processorPath>
+        <module name="servicio-proyectos" />
       </profile>
     </annotationProcessing>
     <bytecodeTargetLevel>
@@ -52,6 +69,7 @@
       <module name="msvc-colaboracion" options="-parameters" />
       <module name="msvc-proyecto" options="-parameters" />
       <module name="msvc-recursos" options="-parameters" />
+      <module name="servicio-proyectos" options="-parameters" />
     </option>
   </component>
 </project>

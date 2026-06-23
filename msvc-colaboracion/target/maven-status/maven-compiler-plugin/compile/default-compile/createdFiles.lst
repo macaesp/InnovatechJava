@@ -1,0 +1,8 @@
+com\innovatech\controller\ColaboracionController.class
+com\innovatech\exception\GlobalExceptionHandler.class
+com\innovatech\model\Colaboracion.class
+com\innovatech\dto\ColaboracionDTO.class
+com\innovatech\repository\ColaboracionRepository.class
+com\innovatech\service\ColaboracionService.class
+com\innovatech\exception\RecursoNoEncontradoException.class
+com\innovatech\MsvcColaboracionApplication.class

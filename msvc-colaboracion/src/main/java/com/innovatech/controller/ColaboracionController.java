@@ -12,7 +12,6 @@ import java.util.List;
 
 @RestController
 @RequestMapping("/api/colaboraciones")
-@RequiredArgsConstructor
 public class ColaboracionController {
 
     private final ColaboracionService colaboracionService;
