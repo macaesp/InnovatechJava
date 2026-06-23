@@ -18,10 +18,12 @@
     <packaging>pom</packaging>
     <name>msvc-proyectos</name>
     <description>Microservicio de Gestión de Proyectos - Innovatech Solutions</description>
+
     <modules>
         <module>msvc-proyecto</module>
         <module>msvc-recursos</module>
         <module>msvc-colaboracion</module>
+        <module>msvc-autentificacion</module>
     </modules>
 
     <properties>
