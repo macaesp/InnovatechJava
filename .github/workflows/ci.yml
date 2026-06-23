@@ -2,7 +2,7 @@ name: Java CI
 
 on:
 push:
-branches:
+  branches:
   - main
   - master
 
@@ -13,9 +13,9 @@ branches:
 
 jobs:
 build:
-
 runs-on: ubuntu-latest
-
+  
+  ```
 steps:
   - name: Checkout del código
     uses: actions/checkout@v4
@@ -31,3 +31,5 @@ steps:
 
   - name: Ejecutar pruebas
     run: mvn test
+
+
