@@ -177,7 +177,7 @@ aws lambda invoke \
   --payload file://event-test.json \
   --region us-east-1 \
   response.json
-  hola
+  hola soy un ejemplo jiji :D
 
 cat response.json
 ```
