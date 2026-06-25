@@ -11,6 +11,8 @@ import org.springframework.web.bind.annotation.*;
 import java.util.List;
 import java.util.logging.Logger;
 
+@RestController
+@RequestMapping("/api/v1/auth")
 public class UsuarioController {
     private static final Logger logger = Logger.getLogger(UsuarioController.class.getName());
 
