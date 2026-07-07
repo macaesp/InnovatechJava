@@ -79,10 +79,8 @@ jobs:
     name: Desplegar en el clúster de Docker Swarm (EC2)
     needs: build
     runs-on: ubuntu-latest
-    # Solo desplegar cuando se hace push directo a main (evita el error
-    # "missing server host" que ocurre en pull_request porque los secrets
-    # no están disponibles en ese contexto).
-    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    # NOTA: Cambia 'main' por 'master' si esa es tu rama de producción activa
+    if: github.event_name == 'push' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master')
     env:
       ECR_REGISTRY: ${{ needs.build.outputs.ecr_registry }}
     steps:
@@ -118,18 +116,23 @@ jobs:
           envs: ECR_REGISTRY
           script: |
             export AWS_REGION="${{ secrets.AWS_REGION }}"
-            aws ecr get-login-password --region "$AWS_REGION" \
-              | docker login --username AWS --password-stdin "$ECR_REGISTRY"
+            
+            # Autenticación a ECR usando sudo (para heredar el LabRole correctamente en la sesión no-interactiva)
+            sudo aws ecr get-login-password --region "$AWS_REGION" \
+              | sudo docker login --username AWS --password-stdin "$ECR_REGISTRY"
 
             cd /opt/innovatech
 
-            docker pull "$ECR_REGISTRY/msvc-autentificacion:latest"
-            docker pull "$ECR_REGISTRY/msvc-proyecto:latest"
-            docker pull "$ECR_REGISTRY/msvc-recursos:latest"
-            docker pull "$ECR_REGISTRY/msvc-colaboracion:latest"
+            # Pull de imágenes con privilegios elevados
+            sudo docker pull "$ECR_REGISTRY/msvc-autentificacion:latest"
+            sudo docker pull "$ECR_REGISTRY/msvc-proyecto:latest"
+            sudo docker pull "$ECR_REGISTRY/msvc-recursos:latest"
+            sudo docker pull "$ECR_REGISTRY/msvc-colaboracion:latest"
 
-            ECR_REGISTRY="$ECR_REGISTRY" docker stack deploy \
+            # Despliegue del stack pasándole la variable de entorno a sudo
+            sudo ECR_REGISTRY="$ECR_REGISTRY" docker stack deploy \
               -c docker-compose.yml innovatech --with-registry-auth
 
-            docker service ls
-            docker stack ps innovatech --no-trunc
+            # Reporte de estado
+            sudo docker service ls
+            sudo docker stack ps innovatech --no-trunc
