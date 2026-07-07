@@ -79,6 +79,10 @@ jobs:
     name: Desplegar en el clúster de Docker Swarm (EC2)
     needs: build
     runs-on: ubuntu-latest
+    # Solo desplegar cuando se hace push directo a main (evita el error
+    # "missing server host" que ocurre en pull_request porque los secrets
+    # no están disponibles en ese contexto).
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     env:
       ECR_REGISTRY: ${{ needs.build.outputs.ecr_registry }}
     steps:
