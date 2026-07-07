@@ -18,9 +18,11 @@ public class ProyectoService {
     private static final Logger logger = Logger.getLogger(ProyectoService.class.getName());
 
     private final ProyectoRepository proyectoRepository;
+    private final NotificacionService notificacionService;
 
-    public ProyectoService(ProyectoRepository proyectoRepository) {
+    public ProyectoService(ProyectoRepository proyectoRepository, NotificacionService notificacionService) {
         this.proyectoRepository = proyectoRepository;
+        this.notificacionService = notificacionService;
     }
 
     public ProyectoDTO.Response crear(ProyectoDTO.Request request) {
@@ -89,8 +91,14 @@ public class ProyectoService {
     public ProyectoDTO.Response cambiarEstado(Long id, EstadoProyecto nuevoEstado) {
         logger.info("Cambiando estado del proyecto " + id + " a " + nuevoEstado);
         Proyecto proyecto = buscarPorId(id);
+        EstadoProyecto estadoAnterior = proyecto.getEstado();
+
         proyecto.setEstado(nuevoEstado);
-        return mapearAResponse(proyectoRepository.save(proyecto));
+        Proyecto guardado = proyectoRepository.save(proyecto);
+
+        notificacionService.notificarCambioDeEstado(guardado, estadoAnterior);
+
+        return mapearAResponse(guardado);
     }
 
     public void eliminar(Long id) {

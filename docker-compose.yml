@@ -2,7 +2,7 @@ version: '3.8'
 
 services:
   autentificacion:
-    image: msvc-autentificacion
+    image: ${ECR_REGISTRY}/msvc-autentificacion:latest
     ports:
       - "8080:8006"
     networks:
@@ -16,7 +16,7 @@ services:
         delay: 10s
 
   recursos:
-    image: msvc-recursos
+    image: ${ECR_REGISTRY}/msvc-recursos:latest
     ports:
       - "8081:8005"
     networks:
@@ -30,7 +30,7 @@ services:
         delay: 10s
 
   proyecto:
-    image: msvc-proyecto
+    image: ${ECR_REGISTRY}/msvc-proyecto:latest
     ports:
       - "8082:8007"
     networks:
@@ -44,7 +44,7 @@ services:
         delay: 10s
 
   colaboracion:
-    image: msvc-colaboracion
+    image: ${ECR_REGISTRY}/msvc-colaboracion:latest
     ports:
       - "8083:8003"
     networks:

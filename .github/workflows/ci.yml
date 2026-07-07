@@ -13,6 +13,8 @@ on:
 jobs:
   build:
     runs-on: ubuntu-latest
+    outputs:
+      ecr_registry: ${{ steps.login-ecr.outputs.registry }}
     steps:
       - name: Checkout del código
         uses: actions/checkout@v4
@@ -72,3 +74,47 @@ jobs:
           cd msvc-colaboracion && mvn clean package -DskipTests && cd ..
           docker build -t $ECR_REGISTRY/msvc-colaboracion:latest ./msvc-colaboracion
           docker push $ECR_REGISTRY/msvc-colaboracion:latest
+
+  deploy:
+    name: Desplegar en el clúster de Docker Swarm (EC2)
+    needs: build
+    runs-on: ubuntu-latest
+    env:
+      ECR_REGISTRY: ${{ needs.build.outputs.ecr_registry }}
+    steps:
+      - name: Checkout del código
+        uses: actions/checkout@v4
+
+      - name: Copiar docker-compose.yml al nodo manager
+        uses: appleboy/scp-action@v0.1.7
+        with:
+          host: ${{ secrets.EC2_HOST }}
+          username: ${{ secrets.EC2_USER }}
+          key: ${{ secrets.EC2_SSH_KEY }}
+          source: "docker-compose.yml"
+          target: "/opt/innovatech"
+
+      - name: Login en ECR y desplegar el stack
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.EC2_HOST }}
+          username: ${{ secrets.EC2_USER }}
+          key: ${{ secrets.EC2_SSH_KEY }}
+          envs: ECR_REGISTRY
+          script: |
+            export AWS_REGION="${{ secrets.AWS_REGION }}"
+            aws ecr get-login-password --region "$AWS_REGION" \
+              | docker login --username AWS --password-stdin "$ECR_REGISTRY"
+
+            cd /opt/innovatech
+
+            docker pull "$ECR_REGISTRY/msvc-autentificacion:latest"
+            docker pull "$ECR_REGISTRY/msvc-proyecto:latest"
+            docker pull "$ECR_REGISTRY/msvc-recursos:latest"
+            docker pull "$ECR_REGISTRY/msvc-colaboracion:latest"
+
+            ECR_REGISTRY="$ECR_REGISTRY" docker stack deploy \
+              -c docker-compose.yml innovatech --with-registry-auth
+
+            docker service ls
+            docker stack ps innovatech --no-trunc
