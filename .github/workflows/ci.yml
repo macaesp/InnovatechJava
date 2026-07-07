@@ -79,10 +79,8 @@ jobs:
     name: Desplegar en el clúster de Docker Swarm (EC2)
     needs: build
     runs-on: ubuntu-latest
-    # NOTA: Cambia 'main' por 'master' si esa es tu rama de producción activa
+    # Se ejecuta al hacer push tanto en main como en master
     if: github.event_name == 'push' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master')
-    env:
-      ECR_REGISTRY: ${{ needs.build.outputs.ecr_registry }}
     steps:
       - name: Checkout del código
         uses: actions/checkout@v4
@@ -113,26 +111,30 @@ jobs:
           host: ${{ secrets.EC2_PROD_HOST }}
           username: ${{ secrets.EC2_USER }}
           key: ${{ secrets.EC2_SSH_KEY }}
-          envs: ECR_REGISTRY
           script: |
-            export AWS_REGION="${{ secrets.AWS_REGION }}"
-            
-            # Autenticación a ECR usando sudo (para heredar el LabRole correctamente en la sesión no-interactiva)
-            sudo aws ecr get-login-password --region "$AWS_REGION" \
+            # 1. Definición estática del entorno AWS de tu Laboratorio
+            export AWS_REGION="us-east-1"
+            export ACCOUNT_ID="482544634513"
+            export ECR_REGISTRY="${ACCOUNT_ID}.dkr.ecr.${AWS_REGION}.amazonaws.com"
+
+            echo "Iniciando sesión en ECR: $ECR_REGISTRY"
+
+            # 2. Login usando la identidad nativa de la EC2 (LabRole) hacia sudo docker
+            aws ecr get-login-password --region "$AWS_REGION" \
               | sudo docker login --username AWS --password-stdin "$ECR_REGISTRY"
 
             cd /opt/innovatech
 
-            # Pull de imágenes con privilegios elevados
+            # 3. Pulls con variables protegidas para el entorno sudo
             sudo docker pull "$ECR_REGISTRY/msvc-autentificacion:latest"
             sudo docker pull "$ECR_REGISTRY/msvc-proyecto:latest"
             sudo docker pull "$ECR_REGISTRY/msvc-recursos:latest"
             sudo docker pull "$ECR_REGISTRY/msvc-colaboracion:latest"
 
-            # Despliegue del stack pasándole la variable de entorno a sudo
-            sudo ECR_REGISTRY="$ECR_REGISTRY" docker stack deploy \
+            # 4. Despliegue del Stack inyectando explícitamente el ECR_REGISTRY en sudo
+            sudo env ECR_REGISTRY="$ECR_REGISTRY" docker stack deploy \
               -c docker-compose.yml innovatech --with-registry-auth
 
-            # Reporte de estado
+            # 5. Diagnóstico final del despliegue
             sudo docker service ls
             sudo docker stack ps innovatech --no-trunc
