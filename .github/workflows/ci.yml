@@ -93,6 +93,7 @@ jobs:
           key: ${{ secrets.EC2_SSH_KEY }}
           source: "docker-compose.yml"
           target: "/opt/innovatech"
+          debug: true
 
       - name: Login en ECR y desplegar el stack
         uses: appleboy/ssh-action@v1.0.3
