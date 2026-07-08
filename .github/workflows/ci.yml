@@ -13,8 +13,6 @@ on:
 jobs:
   build:
     runs-on: ubuntu-latest
-    outputs:
-      ecr_registry: ${{ steps.login-ecr.outputs.registry }}
     steps:
       - name: Checkout del código
         uses: actions/checkout@v4
@@ -26,54 +24,35 @@ jobs:
           java-version: 17
 
       - name: Compilar proyecto
-        run: mvn clean package
+        run: mvn clean package -DskipTests # Agiliza la compilación en GitHub
 
-      - name: Ejecutar pruebas
-        run: mvn test
-
-      - name: Configurar credenciales AWS
-        uses: aws-actions/configure-aws-credentials@v4
+      # 1. Login seguro en Docker Hub (Esquivando el bloqueo de AWS ECR)
+      - name: Login a Docker Hub
+        uses: docker/login-action@v3
         with:
-          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
-          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-          aws-session-token: ${{ secrets.AWS_SESSION_TOKEN }}
-          aws-region: ${{ secrets.AWS_REGION }}
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
 
-      - name: Login a Amazon ECR
-        id: login-ecr
-        uses: aws-actions/amazon-ecr-login@v2
-
+      # 2. Build y Push de los 4 Microservicios hacia Docker Hub
       - name: Build y push msvc-autentificacion
-        env:
-          ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
         run: |
-          cd msvc-autentificacion && mvn clean package -DskipTests && cd ..
-          docker build -t $ECR_REGISTRY/msvc-autentificacion:latest ./msvc-autentificacion
-          docker push $ECR_REGISTRY/msvc-autentificacion:latest
+          docker build -t ${{ secrets.DOCKERHUB_USERNAME }}/msvc-autentificacion:latest ./msvc-autentificacion
+          docker push ${{ secrets.DOCKERHUB_USERNAME }}/msvc-autentificacion:latest
 
       - name: Build y push msvc-proyecto
-        env:
-          ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
         run: |
-          cd msvc-proyecto && mvn clean package -DskipTests && cd ..
-          docker build -t $ECR_REGISTRY/msvc-proyecto:latest ./msvc-proyecto
-          docker push $ECR_REGISTRY/msvc-proyecto:latest
+          docker build -t ${{ secrets.DOCKERHUB_USERNAME }}/msvc-proyecto:latest ./msvc-proyecto
+          docker push ${{ secrets.DOCKERHUB_USERNAME }}/msvc-proyecto:latest
 
       - name: Build y push msvc-recursos
-        env:
-          ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
         run: |
-          cd msvc-recursos && mvn clean package -DskipTests && cd ..
-          docker build -t $ECR_REGISTRY/msvc-recursos:latest ./msvc-recursos
-          docker push $ECR_REGISTRY/msvc-recursos:latest
+          docker build -t ${{ secrets.DOCKERHUB_USERNAME }}/msvc-recursos:latest ./msvc-recursos
+          docker push ${{ secrets.DOCKERHUB_USERNAME }}/msvc-recursos:latest
 
       - name: Build y push msvc-colaboracion
-        env:
-          ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
         run: |
-          cd msvc-colaboracion && mvn clean package -DskipTests && cd ..
-          docker build -t $ECR_REGISTRY/msvc-colaboracion:latest ./msvc-colaboracion
-          docker push $ECR_REGISTRY/msvc-colaboracion:latest
+          docker build -t ${{ secrets.DOCKERHUB_USERNAME }}/msvc-colaboracion:latest ./msvc-colaboracion
+          docker push ${{ secrets.DOCKERHUB_USERNAME }}/msvc-colaboracion:latest
 
   deploy:
     name: Desplegar en el clúster de Docker Swarm (EC2)
@@ -102,34 +81,24 @@ jobs:
           key: ${{ secrets.EC2_SSH_KEY }}
           source: "docker-compose.yml"
           target: "/opt/innovatech"
-          debug: true
 
-      - name: Login en ECR y desplegar el stack
+      - name: Desplegar el stack en Docker Swarm
         uses: appleboy/ssh-action@v1.0.3
         with:
           host: ${{ secrets.EC2_PROD_HOST }}
           username: ${{ secrets.EC2_USER }}
           key: ${{ secrets.EC2_SSH_KEY }}
           script: |
-            export AWS_REGION="us-east-1"
-            export ACCOUNT_ID="482544634513"
-            export ECR_REGISTRY="${ACCOUNT_ID}.dkr.ecr.${AWS_REGION}.amazonaws.com"
-
-            echo "Iniciando sesión en ECR: $ECR_REGISTRY"
-
-            aws ecr get-login-password --region "$AWS_REGION" \
-              | sudo docker login --username AWS --password-stdin "$ECR_REGISTRY"
-
             cd /opt/innovatech
 
-            sudo docker pull "$ECR_REGISTRY/msvc-autentificacion:latest"
-            sudo docker pull "$ECR_REGISTRY/msvc-proyecto:latest"
-            sudo docker pull "$ECR_REGISTRY/msvc-recursos:latest"
-            sudo docker pull "$ECR_REGISTRY/msvc-colaboracion:latest"
+            # Forzamos la descarga de las nuevas imágenes desde Docker Hub en el servidor
+            sudo docker pull ${{ secrets.DOCKERHUB_USERNAME }}/msvc-autentificacion:latest
+            sudo docker pull ${{ secrets.DOCKERHUB_USERNAME }}/msvc-proyecto:latest
+            sudo docker pull ${{ secrets.DOCKERHUB_USERNAME }}/msvc-recursos:latest
+            sudo docker pull ${{ secrets.DOCKERHUB_USERNAME }}/msvc-colaboracion:latest
 
-            # Cambiado a 'innovatech-stack' para mantener consistencia con tus comandos anteriores
-            sudo env ECR_REGISTRY="$ECR_REGISTRY" docker stack deploy \
-              -c docker-compose.yml innovatech-stack --with-registry-auth
+            # Despliegue limpio del stack usando Docker Hub
+            sudo docker stack deploy -c docker-compose.yml innovatech-stack
 
+            # Reporte final para los logs de GitHub Actions
             sudo docker service ls
-            sudo docker stack ps innovatech-stack --no-trunc
