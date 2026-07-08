@@ -12,6 +12,7 @@ on:
 
 jobs:
   build:
+    name: Compilación e Integración Continua (Docker Hub)
     runs-on: ubuntu-latest
     steps:
       - name: Checkout del código
@@ -23,7 +24,7 @@ jobs:
           distribution: temurin
           java-version: 17
 
-      - name: Compilar proyecto
+      - name: Compilar proyecto con Maven
         run: mvn clean package -DskipTests
 
       # 1. Login seguro en Docker Hub
