@@ -24,9 +24,9 @@ jobs:
           java-version: 17
 
       - name: Compilar proyecto
-        run: mvn clean package -DskipTests # Agiliza la compilación en GitHub
+        run: mvn clean package -DskipTests
 
-      # 1. Login seguro en Docker Hub (Esquivando el bloqueo de AWS ECR)
+      # 1. Login seguro en Docker Hub
       - name: Login a Docker Hub
         uses: docker/login-action@v3
         with:
@@ -69,6 +69,8 @@ jobs:
           host: ${{ secrets.EC2_PROD_HOST }}
           username: ${{ secrets.EC2_USER }}
           key: ${{ secrets.EC2_SSH_KEY }}
+          timeout: 30s                  # <-- Limita la espera de conexión a 30s
+          command_timeout: 5m
           script: |
             sudo mkdir -p /opt/innovatech
             sudo chown -R $(whoami):$(whoami) /opt/innovatech
@@ -79,6 +81,7 @@ jobs:
           host: ${{ secrets.EC2_PROD_HOST }}
           username: ${{ secrets.EC2_USER }}
           key: ${{ secrets.EC2_SSH_KEY }}
+          timeout: 30s                  # <-- Limita la espera de conexión a 30s
           source: "docker-compose.yml"
           target: "/opt/innovatech"
 
@@ -88,17 +91,16 @@ jobs:
           host: ${{ secrets.EC2_PROD_HOST }}
           username: ${{ secrets.EC2_USER }}
           key: ${{ secrets.EC2_SSH_KEY }}
+          timeout: 30s                  # <-- Limita la espera de conexión a 30s
+          command_timeout: 10m
           script: |
             cd /opt/innovatech
 
-            # Forzamos la descarga de las nuevas imágenes desde Docker Hub en el servidor
             sudo docker pull ${{ secrets.DOCKERHUB_USERNAME }}/msvc-autentificacion:latest
             sudo docker pull ${{ secrets.DOCKERHUB_USERNAME }}/msvc-proyecto:latest
             sudo docker pull ${{ secrets.DOCKERHUB_USERNAME }}/msvc-recursos:latest
             sudo docker pull ${{ secrets.DOCKERHUB_USERNAME }}/msvc-colaboracion:latest
 
-            # Despliegue limpio del stack usando Docker Hub
             sudo docker stack deploy -c docker-compose.yml innovatech-stack
-
-            # Reporte final para los logs de GitHub Actions
+            
             sudo docker service ls
