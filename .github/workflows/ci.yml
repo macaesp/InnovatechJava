@@ -24,17 +24,17 @@ jobs:
           distribution: temurin
           java-version: 17
 
-      - name: Compilar proyecto con Maven
+      - name: Compilar proyecto principal con Maven
         run: mvn clean package -DskipTests
 
-      # 1. Login seguro en Docker Hub
+      # 1. Login automatizado en Docker Hub usando tus secretos
       - name: Login a Docker Hub
         uses: docker/login-action@v3
         with:
           username: ${{ secrets.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_TOKEN }}
 
-      # 2. Build y Push de los 4 Microservicios hacia Docker Hub
+      # 2. Build y Push de los 4 Microservicios con tu usuario configurado
       - name: Build y push msvc-autentificacion
         run: |
           docker build -t ${{ secrets.DOCKERHUB_USERNAME }}/msvc-autentificacion:latest ./msvc-autentificacion
