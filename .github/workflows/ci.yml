@@ -5,10 +5,14 @@ on:
     branches:
       - main
       - master
+  pull_request:
+    branches:
+      - main
+      - master
 
 jobs:
-  build:
-    name: Compilación e Integración Continua (Maven Validate)
+  build-and-push:
+    name: Integración Continua (CI) - Maven & Docker Hub
     runs-on: ubuntu-latest
     steps:
       - name: Checkout del código
@@ -20,5 +24,109 @@ jobs:
           distribution: temurin
           java-version: 17
 
-      - name: Compilar y Empaquetar con Maven
+      - name: Compilar proyecto principal con Maven
         run: mvn clean package -DskipTests
+
+      - name: Login en Docker Hub
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      - name: Build y push msvc-autentificacion
+        run: |
+          docker build -t ${{ secrets.DOCKERHUB_USERNAME }}/msvc-autentificacion:latest ./msvc-autentificacion
+          docker push ${{ secrets.DOCKERHUB_USERNAME }}/msvc-autentificacion:latest
+
+      - name: Build y push msvc-proyecto
+        run: |
+          docker build -t ${{ secrets.DOCKERHUB_USERNAME }}/msvc-proyecto:latest ./msvc-proyecto
+          docker push ${{ secrets.DOCKERHUB_USERNAME }}/msvc-proyecto:latest
+
+      - name: Build y push msvc-recursos
+        run: |
+          docker build -t ${{ secrets.DOCKERHUB_USERNAME }}/msvc-recursos:latest ./msvc-recursos
+          docker push ${{ secrets.DOCKERHUB_USERNAME }}/msvc-recursos:latest
+
+      - name: Build y push msvc-colaboracion
+        run: |
+          docker build -t ${{ secrets.DOCKERHUB_USERNAME }}/msvc-colaboracion:latest ./msvc-colaboracion
+          docker push ${{ secrets.DOCKERHUB_USERNAME }}/msvc-colaboracion:latest
+
+  deploy:
+    name: Despliegue Continuo (CD) - AWS EC2 Swarm
+    needs: build-and-push
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout del código (Para transferir el docker-compose)
+        uses: actions/checkout@v4
+
+      - name: Ejecutar comandos de despliegue por SSH
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.EC2_PROD_HOST }}
+          username: ${{ secrets.EC2_USER }}
+          key: ${{ secrets.EC2_SSH_KEY }}
+          script: |
+            # 1. Instalar y activar Docker de forma automática si no existe en la EC2
+            if ! command -v docker &> /dev/null; then
+              echo "Instalando Docker..."
+              sudo yum update -y
+              sudo yum install -y docker
+              sudo systemctl start docker
+              sudo systemctl enable docker
+              sudo usermod -aG docker $USER
+            fi
+
+            # 2. Asegurar que el directorio del proyecto exista
+            sudo mkdir -p /opt/innovatech
+            sudo chown -R $USER:$USER /opt/innovatech
+            cd /opt/innovatech
+
+            # 3. Inicializar Docker Swarm si no está activo
+            if ! sudo docker node ls &> /dev/null; then
+              echo "Inicializando Docker Swarm..."
+              sudo docker swarm init --advertise-addr $(curl -s http://169.254.169.254/latest/meta-data/local-ipv4) || sudo docker swarm init
+            fi
+
+            # 4. Crear o sobrescribir el archivo docker-compose.yml directamente en el servidor
+            cat << 'EOF' > docker-compose.yml
+            version: '3.8'
+            services:
+              msvc-autentificacion:
+                image: ${{ secrets.DOCKERHUB_USERNAME }}/msvc-autentificacion:latest
+                ports:
+                  - "8081:8081"
+                deploy:
+                  replicas: 1
+              msvc-proyecto:
+                image: ${{ secrets.DOCKERHUB_USERNAME }}/msvc-proyecto:latest
+                ports:
+                  - "8082:8082"
+                deploy:
+                  replicas: 1
+              msvc-recursos:
+                image: ${{ secrets.DOCKERHUB_USERNAME }}/msvc-recursos:latest
+                ports:
+                  - "8083:8083"
+                deploy:
+                  replicas: 1
+              msvc-colaboracion:
+                image: ${{ secrets.DOCKERHUB_USERNAME }}/msvc-colaboracion:latest
+                ports:
+                  - "8084:8084"
+                deploy:
+                  replicas: 1
+            EOF
+
+            # 5. Descargar las últimas imágenes actualizadas de Docker Hub
+            sudo docker pull ${{ secrets.DOCKERHUB_USERNAME }}/msvc-autentificacion:latest
+            sudo docker pull ${{ secrets.DOCKERHUB_USERNAME }}/msvc-proyecto:latest
+            sudo docker pull ${{ secrets.DOCKERHUB_USERNAME }}/msvc-recursos:latest
+            sudo docker pull ${{ secrets.DOCKERHUB_USERNAME }}/msvc-colaboracion:latest
+
+            # 6. Desplegar el Stack en el orquestador Swarm
+            sudo docker stack deploy -c docker-compose.yml innovatech-stack
+
+            # 7. Mostrar estado final en los logs de GitHub Actions
+            sudo docker service ls
