@@ -1,62 +1,34 @@
 version: '3.8'
 
 services:
-  autentificacion:
-    image: ${ECR_REGISTRY}/msvc-autentificacion:latest
-    ports:
-      - "8080:8006"
-    networks:
-      - app-network
-    deploy:
-      replicas: 1
-      restart_policy:
-        condition: on-failure
-      update_config:
-        parallelism: 1
-        delay: 10s
-
-  recursos:
-    image: ${ECR_REGISTRY}/msvc-recursos:latest
-    ports:
-      - "8081:8005"
-    networks:
-      - app-network
-    deploy:
-      replicas: 1
-      restart_policy:
-        condition: on-failure
-      update_config:
-        parallelism: 1
-        delay: 10s
-
-  proyecto:
+  msvc-proyecto:
     image: ${ECR_REGISTRY}/msvc-proyecto:latest
     ports:
-      - "8082:8007"
-    networks:
-      - app-network
+      - "8081:8080"
     deploy:
-      replicas: 1
       restart_policy:
         condition: on-failure
-      update_config:
-        parallelism: 1
-        delay: 10s
 
-  colaboracion:
+  msvc-autentificacion:
+    image: ${ECR_REGISTRY}/msvc-autentificacion:latest
+    ports:
+      - "8082:8080"
+    deploy:
+      restart_policy:
+        condition: on-failure
+
+  msvc-colaboracion:
     image: ${ECR_REGISTRY}/msvc-colaboracion:latest
     ports:
-      - "8083:8003"
-    networks:
-      - app-network
+      - "8083:8080"
     deploy:
-      replicas: 1
       restart_policy:
         condition: on-failure
-      update_config:
-        parallelism: 1
-        delay: 10s
 
-networks:
-  app-network:
-    driver: overlay
+  msvc-recursos:
+    image: ${ECR_REGISTRY}/msvc-recursos:latest
+    ports:
+      - "8084:8080"
+    deploy:
+      restart_policy:
+        condition: on-failure
