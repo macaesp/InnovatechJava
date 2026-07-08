@@ -11,9 +11,10 @@ on:
       - master
 
 jobs:
-  build-and-push:
-    name: Integración Continua (CI) - Maven & Docker Hub
+  build:
     runs-on: ubuntu-latest
+    outputs:
+      ecr_registry: ${{ steps.login-ecr.outputs.registry }}
     steps:
       - name: Checkout del código
         uses: actions/checkout@v4
@@ -24,109 +25,100 @@ jobs:
           distribution: temurin
           java-version: 17
 
-      - name: Compilar proyecto principal con Maven
-        run: mvn clean package -DskipTests
+      - name: Compilar proyecto
+        run: mvn clean package
 
-      - name: Login en Docker Hub
-        uses: docker/login-action@v3
+      - name: Ejecutar pruebas
+        run: mvn test
+
+      - name: Configurar credenciales AWS
+        uses: aws-actions/configure-aws-credentials@v4
         with:
-          username: ${{ secrets.DOCKERHUB_USERNAME }}
-          password: ${{ secrets.DOCKERHUB_TOKEN }}
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-session-token: ${{ secrets.AWS_SESSION_TOKEN }}
+          aws-region: ${{ secrets.AWS_REGION }}
+
+      - name: Login a Amazon ECR
+        id: login-ecr
+        uses: aws-actions/amazon-ecr-login@v2
 
       - name: Build y push msvc-autentificacion
+        env:
+          ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
         run: |
-          docker build -t ${{ secrets.DOCKERHUB_USERNAME }}/msvc-autentificacion:latest ./msvc-autentificacion
-          docker push ${{ secrets.DOCKERHUB_USERNAME }}/msvc-autentificacion:latest
+          cd msvc-autentificacion && mvn clean package -DskipTests && cd ..
+          docker build -t $ECR_REGISTRY/msvc-autentificacion:latest ./msvc-autentificacion
+          docker push $ECR_REGISTRY/msvc-autentificacion:latest
 
       - name: Build y push msvc-proyecto
+        env:
+          ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
         run: |
-          docker build -t ${{ secrets.DOCKERHUB_USERNAME }}/msvc-proyecto:latest ./msvc-proyecto
-          docker push ${{ secrets.DOCKERHUB_USERNAME }}/msvc-proyecto:latest
+          cd msvc-proyecto && mvn clean package -DskipTests && cd ..
+          docker build -t $ECR_REGISTRY/msvc-proyecto:latest ./msvc-proyecto
+          docker push $ECR_REGISTRY/msvc-proyecto:latest
 
       - name: Build y push msvc-recursos
+        env:
+          ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
         run: |
-          docker build -t ${{ secrets.DOCKERHUB_USERNAME }}/msvc-recursos:latest ./msvc-recursos
-          docker push ${{ secrets.DOCKERHUB_USERNAME }}/msvc-recursos:latest
+          cd msvc-recursos && mvn clean package -DskipTests && cd ..
+          docker build -t $ECR_REGISTRY/msvc-recursos:latest ./msvc-recursos
+          docker push $ECR_REGISTRY/msvc-recursos:latest
 
       - name: Build y push msvc-colaboracion
+        env:
+          ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
         run: |
-          docker build -t ${{ secrets.DOCKERHUB_USERNAME }}/msvc-colaboracion:latest ./msvc-colaboracion
-          docker push ${{ secrets.DOCKERHUB_USERNAME }}/msvc-colaboracion:latest
+          cd msvc-colaboracion && mvn clean package -DskipTests && cd ..
+          docker build -t $ECR_REGISTRY/msvc-colaboracion:latest ./msvc-colaboracion
+          docker push $ECR_REGISTRY/msvc-colaboracion:latest
 
   deploy:
-    name: Despliegue Continuo (CD) - AWS EC2 Swarm
-    needs: build-and-push
+    name: Desplegar en el clúster de Docker Swarm (EC2)
+    needs: build
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout del código (Para transferir el docker-compose)
+      - name: Checkout del código
         uses: actions/checkout@v4
 
-      - name: Ejecutar comandos de despliegue por SSH
-        uses: appleboy/ssh-action@v1.0.3
+      - name: Copiar docker-compose.yml al nodo manager
+        uses: appleboy/scp-action@v0.1.7
         with:
           host: ${{ secrets.EC2_PROD_HOST }}
           username: ${{ secrets.EC2_USER }}
           key: ${{ secrets.EC2_SSH_KEY }}
+          source: "docker-compose.yml"
+          target: "/home/${{ secrets.EC2_USER }}/innovatech"
+          debug: true
+
+      - name: Login en ECR y desplegar el stack
+        uses: appleboy/ssh-action@v1.0.3
+        env:
+          ECR_REGISTRY: ${{ needs.build.outputs.ecr_registry }}
+          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          AWS_SESSION_TOKEN: ${{ secrets.AWS_SESSION_TOKEN }}
+          AWS_REGION: ${{ secrets.AWS_REGION }}
+        with:
+          host: ${{ secrets.EC2_PROD_HOST }}
+          username: ${{ secrets.EC2_USER }}
+          key: ${{ secrets.EC2_SSH_KEY }}
+          envs: ECR_REGISTRY, AWS_ACCESS_KEY_ID, AWS_SECRET_ACCESS_KEY, AWS_SESSION_TOKEN, AWS_REGION
           script: |
-            # 1. Instalar y activar Docker de forma automática si no existe en la EC2
-            if ! command -v docker &> /dev/null; then
-              echo "Instalando Docker..."
-              sudo yum update -y
-              sudo yum install -y docker
-              sudo systemctl start docker
-              sudo systemctl enable docker
-              sudo usermod -aG docker $USER
-            fi
+            aws ecr get-login-password --region "$AWS_REGION" \
+              | docker login --username AWS --password-stdin "$ECR_REGISTRY"
 
-            # 2. Asegurar que el directorio del proyecto exista
-            sudo mkdir -p /opt/innovatech
-            sudo chown -R $USER:$USER /opt/innovatech
-            cd /opt/innovatech
+            cd "/home/$USER/innovatech"
 
-            # 3. Inicializar Docker Swarm si no está activo
-            if ! sudo docker node ls &> /dev/null; then
-              echo "Inicializando Docker Swarm..."
-              sudo docker swarm init --advertise-addr $(curl -s http://169.254.169.254/latest/meta-data/local-ipv4) || sudo docker swarm init
-            fi
+            docker pull "$ECR_REGISTRY/msvc-autentificacion:latest"
+            docker pull "$ECR_REGISTRY/msvc-proyecto:latest"
+            docker pull "$ECR_REGISTRY/msvc-recursos:latest"
+            docker pull "$ECR_REGISTRY/msvc-colaboracion:latest"
 
-            # 4. Crear o sobrescribir el archivo docker-compose.yml directamente en el servidor
-            cat << 'EOF' > docker-compose.yml
-            version: '3.8'
-            services:
-              msvc-autentificacion:
-                image: ${{ secrets.DOCKERHUB_USERNAME }}/msvc-autentificacion:latest
-                ports:
-                  - "8081:8081"
-                deploy:
-                  replicas: 1
-              msvc-proyecto:
-                image: ${{ secrets.DOCKERHUB_USERNAME }}/msvc-proyecto:latest
-                ports:
-                  - "8082:8082"
-                deploy:
-                  replicas: 1
-              msvc-recursos:
-                image: ${{ secrets.DOCKERHUB_USERNAME }}/msvc-recursos:latest
-                ports:
-                  - "8083:8083"
-                deploy:
-                  replicas: 1
-              msvc-colaboracion:
-                image: ${{ secrets.DOCKERHUB_USERNAME }}/msvc-colaboracion:latest
-                ports:
-                  - "8084:8084"
-                deploy:
-                  replicas: 1
-            EOF
+            ECR_REGISTRY="$ECR_REGISTRY" docker stack deploy \
+              -c docker-compose.yml innovatech --with-registry-auth
 
-            # 5. Descargar las últimas imágenes actualizadas de Docker Hub
-            sudo docker pull ${{ secrets.DOCKERHUB_USERNAME }}/msvc-autentificacion:latest
-            sudo docker pull ${{ secrets.DOCKERHUB_USERNAME }}/msvc-proyecto:latest
-            sudo docker pull ${{ secrets.DOCKERHUB_USERNAME }}/msvc-recursos:latest
-            sudo docker pull ${{ secrets.DOCKERHUB_USERNAME }}/msvc-colaboracion:latest
-
-            # 6. Desplegar el Stack en el orquestador Swarm
-            sudo docker stack deploy -c docker-compose.yml innovatech-stack
-
-            # 7. Mostrar estado final en los logs de GitHub Actions
-            sudo docker service ls
+            docker service ls
+            docker stack ps innovatech --no-trunc
