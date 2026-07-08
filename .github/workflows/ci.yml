@@ -5,14 +5,10 @@ on:
     branches:
       - main
       - master
-  pull_request:
-    branches:
-      - main
-      - master
 
 jobs:
   build:
-    name: Compilación e Integración Continua (Docker Hub)
+    name: Compilación e Integración Continua (Maven Validate)
     runs-on: ubuntu-latest
     steps:
       - name: Checkout del código
@@ -24,84 +20,5 @@ jobs:
           distribution: temurin
           java-version: 17
 
-      - name: Compilar proyecto principal con Maven
+      - name: Compilar y Empaquetar con Maven
         run: mvn clean package -DskipTests
-
-      # 1. Login automatizado en Docker Hub usando tus secretos
-      - name: Login a Docker Hub
-        uses: docker/login-action@v3
-        with:
-          username: ${{ secrets.DOCKERHUB_USERNAME }}
-          password: ${{ secrets.DOCKERHUB_TOKEN }}
-
-      # 2. Build y Push de los 4 Microservicios con tu usuario configurado
-      - name: Build y push msvc-autentificacion
-        run: |
-          docker build -t ${{ secrets.DOCKERHUB_USERNAME }}/msvc-autentificacion:latest ./msvc-autentificacion
-          docker push ${{ secrets.DOCKERHUB_USERNAME }}/msvc-autentificacion:latest
-
-      - name: Build y push msvc-proyecto
-        run: |
-          docker build -t ${{ secrets.DOCKERHUB_USERNAME }}/msvc-proyecto:latest ./msvc-proyecto
-          docker push ${{ secrets.DOCKERHUB_USERNAME }}/msvc-proyecto:latest
-
-      - name: Build y push msvc-recursos
-        run: |
-          docker build -t ${{ secrets.DOCKERHUB_USERNAME }}/msvc-recursos:latest ./msvc-recursos
-          docker push ${{ secrets.DOCKERHUB_USERNAME }}/msvc-recursos:latest
-
-      - name: Build y push msvc-colaboracion
-        run: |
-          docker build -t ${{ secrets.DOCKERHUB_USERNAME }}/msvc-colaboracion:latest ./msvc-colaboracion
-          docker push ${{ secrets.DOCKERHUB_USERNAME }}/msvc-colaboracion:latest
-
-  deploy:
-    name: Desplegar en el clúster de Docker Swarm (EC2)
-    needs: build
-    runs-on: ubuntu-latest
-    if: github.event_name == 'push' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master')
-    steps:
-      - name: Checkout del código
-        uses: actions/checkout@v4
-
-      - name: Preparar directorio de destino en EC2
-        uses: appleboy/ssh-action@v1.0.3
-        with:
-          host: ${{ secrets.EC2_PROD_HOST }}
-          username: ${{ secrets.EC2_USER }}
-          key: ${{ secrets.EC2_SSH_KEY }}
-          timeout: 30s                  # <-- Limita la espera de conexión a 30s
-          command_timeout: 5m
-          script: |
-            sudo mkdir -p /opt/innovatech
-            sudo chown -R $(whoami):$(whoami) /opt/innovatech
-
-      - name: Copiar docker-compose.yml al nodo manager
-        uses: appleboy/scp-action@v0.1.7
-        with:
-          host: ${{ secrets.EC2_PROD_HOST }}
-          username: ${{ secrets.EC2_USER }}
-          key: ${{ secrets.EC2_SSH_KEY }}
-          timeout: 30s                  # <-- Limita la espera de conexión a 30s
-          source: "docker-compose.yml"
-          target: "/opt/innovatech"
-
-      - name: Desplegar el stack en Docker Swarm
-        uses: appleboy/ssh-action@v1.0.3
-        with:
-          host: ${{ secrets.EC2_PROD_HOST }}
-          username: ${{ secrets.EC2_USER }}
-          key: ${{ secrets.EC2_SSH_KEY }}
-          timeout: 30s                  # <-- Limita la espera de conexión a 30s
-          command_timeout: 10m
-          script: |
-            cd /opt/innovatech
-
-            sudo docker pull ${{ secrets.DOCKERHUB_USERNAME }}/msvc-autentificacion:latest
-            sudo docker pull ${{ secrets.DOCKERHUB_USERNAME }}/msvc-proyecto:latest
-            sudo docker pull ${{ secrets.DOCKERHUB_USERNAME }}/msvc-recursos:latest
-            sudo docker pull ${{ secrets.DOCKERHUB_USERNAME }}/msvc-colaboracion:latest
-
-            sudo docker stack deploy -c docker-compose.yml innovatech-stack
-            
-            sudo docker service ls
